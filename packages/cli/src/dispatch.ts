@@ -36,12 +36,16 @@ export const CORE_COMMANDS = new Set([
   "discover",
   "api",
   "pay",
+  "limits",
+  "policy",
+  "spend",
   "doctor",
   "config",
   "version",
   "help",
   "ext",
   "skills",
+  "upgrade",
 ]);
 
 /**
@@ -57,6 +61,9 @@ export const SUBPRODUCTS: Record<string, { candidates: string[]; pkg: string }> 
   phone: { candidates: ["blockrun-clawrouter", "clawrouter"], pkg: "@blockrun/clawrouter" },
   share: { candidates: ["blockrun-clawrouter", "clawrouter"], pkg: "@blockrun/clawrouter" },
   partners: { candidates: ["blockrun-clawrouter", "clawrouter"], pkg: "@blockrun/clawrouter" },
+  social: { candidates: ["blockrun-franklin", "franklin"], pkg: "@blockrun/franklin" },
+  slack: { candidates: ["blockrun-franklin", "franklin"], pkg: "@blockrun/franklin" },
+  telegram: { candidates: ["blockrun-franklin", "franklin"], pkg: "@blockrun/franklin" },
 };
 
 export type WhichFn = (name: string) => string | null;

@@ -4,7 +4,7 @@
   "description": "One entry point for every BlockRun product — one wallet, one output contract. Forwards route/agent/mcp to independently-installable sub-products.",
   "type": "module",
   "bin": { "blockrun": "dist/cli.js" },
-  "files": ["dist"],
+  "files": ["dist", "skills"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"

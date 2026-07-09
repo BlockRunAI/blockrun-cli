@@ -10,9 +10,10 @@
  * the price without paying — the cheap way to ask "what would this cost?".
  */
 
-import { parsePaymentRequired, extractPaymentDetails, createPaymentPayload } from "@blockrun/llm";
+import { parsePaymentRequired, extractPaymentDetails, createPaymentPayload, logCost } from "@blockrun/llm";
 import { ok, err, resolvePrivateKey, addressFromKey, type Envelope } from "@blockrun/core";
 import { splitFlags } from "./media.js";
+import { readPolicy } from "./policy.js";
 
 const DEFAULT_BASE = "https://blockrun.ai/api";
 
@@ -77,7 +78,8 @@ export async function x402Fetch(
 
   // Safety ceiling — a malicious endpoint can quote any amount; never sign
   // above the cap without the user explicitly raising it via --max.
-  const maxUsd = opts.maxUsd ?? DEFAULT_MAX_USD;
+  // Precedence: --max flag > policy perCall limit > $1 default.
+  const maxUsd = opts.maxUsd ?? readPolicy().perCall ?? DEFAULT_MAX_USD;
   if (!(amountUsd <= maxUsd)) {
     return err(
       "payment-cap",
@@ -110,6 +112,20 @@ export async function x402Fetch(
   const data = await bodyOf(paid);
   if (!paid.ok) {
     return err("http", typeof data === "string" ? data : JSON.stringify(data).slice(0, 400), paid.status);
+  }
+  // Record in the shared SDK ledger so `blockrun spend` and the daily/monthly
+  // guardrails see manual x402 payments too.
+  try {
+    logCost({
+      ts: Date.now() / 1000,
+      endpoint: new URL(url).pathname,
+      cost_usd: amountUsd,
+      wallet: from,
+      network: quote.network,
+      client_kind: "blockrun-cli",
+    });
+  } catch {
+    /* ledger is best-effort */
   }
   return ok(data as Record<string, unknown>, {
     url,

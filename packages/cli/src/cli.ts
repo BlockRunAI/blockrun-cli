@@ -29,8 +29,10 @@ import { chainCmd, configCmd, fundCmd } from "./commands/config.js";
 import { imageCmd, videoCmd, musicCmd, speechCmd, realfaceCmd } from "./commands/media.js";
 import { searchCmd, researchCmd, predictCmd, cryptoCmd, priceCmd, rpcCmd, discoverCmd } from "./commands/data.js";
 import { chatRepl } from "./commands/chat.js";
-import { extCmd } from "./commands/ext.js";
+import { extCmd, upgradeCmd } from "./commands/ext.js";
 import { apiCmd, payCmd } from "./commands/x402.js";
+import { limitsCmd, policyCmd, spendCmd, checkPolicy, categoryOf } from "./commands/policy.js";
+import { skillsCmd } from "./commands/skills.js";
 
 const FORMATS = new Set<OutputFormat>(["json", "pretty", "table", "ndjson", "csv"]);
 
@@ -174,8 +176,15 @@ x402 passthrough (any paid endpoint, ours or third-party)
   pay <url> [--method GET] [--quote]                pay any 402 resource
   (--quote prices the call WITHOUT paying)
 
-Extensions
+Guardrails & spend
+  limits [set --per-call/--daily/--monthly | allow <cats> | deny <cats>]
+  policy show|reset      guardrails + current spend
+  spend [today|month]    real ledger totals (~/.blockrun/cost_log.jsonl)
+
+Extensions & skills
   ext list | install <name> | remove <name>         manage sub-products
+  skills list | add      install bundled Agent Skills into ~/.claude/skills
+  upgrade                npm-update every installed sub-product
 
 Sub-products (independently installable, args forwarded)
   route  ...             → ClawRouter (smart LLM routing)
@@ -193,6 +202,11 @@ Any \`blockrun-<x>\` on your PATH is auto-discovered as \`blockrun <x>\`.`;
 /** Resolve a core command to its envelope (sync helpers + async SDK-backed ones). */
 export async function runCoreCommand(command: string, args: ParsedArgs): Promise<Envelope> {
   const chain = resolveChain(args.chain);
+  // Guardrails: paid commands are policy-checked before any network work.
+  if (categoryOf(command) !== "other") {
+    const gate = checkPolicy(command);
+    if (!gate.allowed) return err("policy", gate.reason, 403);
+  }
   switch (command) {
     // sync, core-backed
     case "chain":
@@ -247,7 +261,15 @@ export async function runCoreCommand(command: string, args: ParsedArgs): Promise
     case "ext":
       return extCmd(args.rest);
     case "skills":
-      return err("not-implemented", "`skills` is on the roadmap (bundled Agent Skills)", 501);
+      return skillsCmd(args.rest);
+    case "limits":
+      return limitsCmd(args.rest);
+    case "policy":
+      return policyCmd(args.rest);
+    case "spend":
+      return spendCmd(args.rest);
+    case "upgrade":
+      return upgradeCmd();
     default:
       return runCore(command, args);
   }
