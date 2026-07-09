@@ -8,7 +8,9 @@
  */
 
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import * as fs from "node:fs";
+import { pathToFileURL } from "node:url";
 import {
   loadWallet,
   createWallet,
@@ -79,6 +81,21 @@ function safeAddr(raw: string): string {
   return addressFromKey(raw) ?? "(unreadable key)";
 }
 
+/** Read a package version at runtime via real module resolution (works installed & in dev). */
+function pkgVersion(name: string): string {
+  try {
+    if (name === "@blockrun/cli") {
+      // Own package.json sits one level above dist/ in the tarball.
+      return (JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string })
+        .version;
+    }
+    const require = createRequire(import.meta.url);
+    return (require(`${name}/package.json`) as { version: string }).version;
+  } catch {
+    return "unknown";
+  }
+}
+
 /** Runs a command and returns the envelope (side-effect-free core logic, for tests). */
 export function runCore(command: string, args: ParsedArgs): Envelope {
   const chain = resolveChain(args.chain);
@@ -131,7 +148,7 @@ export function runCore(command: string, args: ParsedArgs): Envelope {
       return ok({ address: w.address, source: w.source });
     }
     case "version":
-      return ok({ cli: "0.0.1", core: "0.0.1" });
+      return ok({ cli: pkgVersion("@blockrun/cli"), core: pkgVersion("@blockrun/core") });
     default:
       return err("usage", `Unknown core command: ${command}`, 400);
   }
@@ -317,7 +334,17 @@ export async function main(argv: string[]): Promise<void> {
 }
 
 // Only run when invoked as a binary (not when imported by tests).
-const isMain = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
+// argv[1] is a SYMLINK for globally-installed bins — compare realpaths, or the
+// check silently fails and the CLI prints nothing (caught in tarball testing).
+const isMain = (() => {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return import.meta.url === pathToFileURL(fs.realpathSync(entry)).href;
+  } catch {
+    return false;
+  }
+})();
 if (isMain) {
   main(process.argv.slice(2)).catch((e: unknown) => {
     emit(err("internal", e instanceof Error ? e.message : String(e)), { format: "pretty" });
