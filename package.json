@@ -1,0 +1,16 @@
+{
+  "name": "blockrun-cli-workspace",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "node --import tsx --test packages/*/test/*.test.ts",
+    "typecheck": "pnpm -r typecheck",
+    "cli": "tsx packages/cli/src/cli.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.23.0",
+    "typescript": "^5.7.0"
+  }
+}
