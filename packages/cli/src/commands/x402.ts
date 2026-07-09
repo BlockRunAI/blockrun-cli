@@ -31,10 +31,13 @@ async function bodyOf(res: Response): Promise<unknown> {
   }
 }
 
+/** Safety ceiling: refuse to auto-pay quotes above this unless --max raises it. */
+export const DEFAULT_MAX_USD = 1;
+
 export async function x402Fetch(
   url: string,
   init: { method: string; data?: string },
-  opts: { quoteOnly?: boolean } = {},
+  opts: { quoteOnly?: boolean; maxUsd?: number } = {},
 ): Promise<Envelope> {
   const reqInit: RequestInit = {
     method: init.method,
@@ -67,8 +70,20 @@ export async function x402Fetch(
     return err("x402", `could not parse payment requirements: ${(e as Error).message}`, 402);
   }
 
+  const amountUsd = Number(quote.amount) / 1e6;
   if (opts.quoteOnly) {
-    return ok({ quote: { ...quote, amountUsdc: Number(quote.amount) / 1e6 }, url }, { paid: false });
+    return ok({ quote: { ...quote, amountUsdc: amountUsd }, url }, { paid: false });
+  }
+
+  // Safety ceiling — a malicious endpoint can quote any amount; never sign
+  // above the cap without the user explicitly raising it via --max.
+  const maxUsd = opts.maxUsd ?? DEFAULT_MAX_USD;
+  if (!(amountUsd <= maxUsd)) {
+    return err(
+      "payment-cap",
+      `endpoint quoted $${amountUsd.toFixed(4)} which exceeds the $${maxUsd} cap — re-run with --max ${Math.ceil(amountUsd * 100) / 100} to allow, or --quote to inspect`,
+      402,
+    );
   }
 
   const resolved = resolvePrivateKey();
@@ -99,34 +114,38 @@ export async function x402Fetch(
   return ok(data as Record<string, unknown>, {
     url,
     paid: true,
-    cost: Number(quote.amount) / 1e6,
+    cost: amountUsd,
     chain: quote.network,
   });
 }
 
-/** blockrun api <METHOD> <url-or-path> [--data '{}'] [--quote] */
+function maxFlag(flags: Record<string, string | boolean>): number | undefined {
+  return typeof flags.max === "string" && !Number.isNaN(Number(flags.max)) ? Number(flags.max) : undefined;
+}
+
+/** blockrun api <METHOD> <url-or-path> [--data '{}'] [--quote] [--max <usd>] */
 export async function apiCmd(rest: string[]): Promise<Envelope> {
   const { words, flags } = splitFlags(rest);
   const [method, target] = words;
   if (!method || !target) {
-    return err("usage", "usage: blockrun api <GET|POST|...> <url-or-path> [--data '{}'] [--quote]", 400);
+    return err("usage", "usage: blockrun api <GET|POST|...> <url-or-path> [--data '{}'] [--quote] [--max <usd>]", 400);
   }
   return x402Fetch(
     resolveUrl(target),
     { method: method.toUpperCase(), data: typeof flags.data === "string" ? flags.data : undefined },
-    { quoteOnly: flags.quote === true },
+    { quoteOnly: flags.quote === true, maxUsd: maxFlag(flags) },
   );
 }
 
-/** blockrun pay <url> [--method GET] [--data '{}'] [--quote] — pay any 402 resource. */
+/** blockrun pay <url> [--method GET] [--data '{}'] [--quote] [--max <usd>] — pay any 402 resource. */
 export async function payCmd(rest: string[]): Promise<Envelope> {
   const { words, flags } = splitFlags(rest);
   const target = words[0];
-  if (!target) return err("usage", "usage: blockrun pay <url> [--method GET] [--data '{}'] [--quote]", 400);
+  if (!target) return err("usage", "usage: blockrun pay <url> [--method GET] [--data '{}'] [--quote] [--max <usd>]", 400);
   const method = typeof flags.method === "string" ? flags.method.toUpperCase() : "GET";
   return x402Fetch(
     resolveUrl(target),
     { method, data: typeof flags.data === "string" ? flags.data : undefined },
-    { quoteOnly: flags.quote === true },
+    { quoteOnly: flags.quote === true, maxUsd: maxFlag(flags) },
   );
 }

@@ -40,8 +40,12 @@ function npmGlobal(args: string[]): { status: number; out: string } {
   return { status: r.status ?? 1, out: (r.stdout || "") + (r.stderr || "") };
 }
 
+/** Sub-product names are simple slugs — reject anything that could smuggle npm args/paths. */
+const SAFE_NAME = /^[a-z0-9][a-z0-9-]{0,40}$/;
+
 export function extInstall(name: string | undefined): Envelope {
   if (!name) return err("usage", "usage: blockrun ext install <route|agent|mcp|codex|phone|...>", 400);
+  if (!SAFE_NAME.test(name)) return err("usage", `invalid extension name: ${name}`, 400);
   const pkg = pkgFor(name);
   const r = npmGlobal(["install", "-g", pkg]);
   if (r.status !== 0) return err("ext", `npm install -g ${pkg} failed:\n${r.out.slice(-400)}`, r.status);
@@ -50,6 +54,7 @@ export function extInstall(name: string | undefined): Envelope {
 
 export function extRemove(name: string | undefined): Envelope {
   if (!name) return err("usage", "usage: blockrun ext remove <name>", 400);
+  if (!SAFE_NAME.test(name)) return err("usage", `invalid extension name: ${name}`, 400);
   const pkg = pkgFor(name);
   const r = npmGlobal(["remove", "-g", pkg]);
   if (r.status !== 0) return err("ext", `npm remove -g ${pkg} failed:\n${r.out.slice(-400)}`, r.status);

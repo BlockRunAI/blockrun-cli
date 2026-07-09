@@ -18,6 +18,14 @@ test("pkgFor: mapped aliases resolve, unknown falls back to @blockrun/<name>", (
   assert.equal(pkgFor("somethingnew"), "@blockrun/somethingnew");
 });
 
+test("ext install/remove reject unsafe names", async () => {
+  const { extInstall, extRemove } = await import("../src/commands/ext.js");
+  for (const bad of ["../evil", "a b", "UPPER", "--flag", "@scope/x"]) {
+    assert.equal(extInstall(bad).ok, false, `install should reject: ${bad}`);
+    assert.equal(extRemove(bad).ok, false, `remove should reject: ${bad}`);
+  }
+});
+
 test("extList reports installed state from the which fn", () => {
   const which: WhichFn = (n) => (n === "blockrun-codex" ? "/bin/blockrun-codex" : null);
   const env = extList(which);
