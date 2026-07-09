@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build (tsc)
+        run: |
+          ./node_modules/.bin/tsc -p packages/core/tsconfig.json
+          ./node_modules/.bin/tsc -p packages/cli/tsconfig.json
+      - name: Unit tests
+        run: node --import tsx --test packages/*/test/*.test.ts

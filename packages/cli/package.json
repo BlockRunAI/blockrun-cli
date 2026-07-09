@@ -1,8 +1,12 @@
 {
   "name": "@blockrun/cli",
   "version": "0.0.1",
-  "description": "One entry point for every BlockRun product — one wallet, one output contract. Forwards route/agent/mcp to independently-installable sub-products.",
+  "description": "One entry point for every BlockRun product — pay-per-request AI, live data, and any x402 endpoint from one USDC wallet. No API keys.",
   "type": "module",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/BlockRunAI/blockrun-cli.git", "directory": "packages/cli" },
+  "keywords": ["blockrun", "x402", "cli", "llm", "ai", "usdc", "wallet", "agent", "micropayments"],
+  "publishConfig": { "access": "public" },
   "bin": { "blockrun": "dist/cli.js" },
   "files": ["dist", "skills"],
   "scripts": {

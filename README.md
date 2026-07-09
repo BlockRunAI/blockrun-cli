@@ -1,43 +1,60 @@
-# blockrun-cli (workspace)
+<div align="center">
 
-Umbrella CLI + shared kernel for the BlockRun product family. **Additive and standalone** — it does not modify any live product yet. See [../BLOCKRUN_CLI_PROPOSAL.md](../BLOCKRUN_CLI_PROPOSAL.md) and [../BLOCKRUN_CLI_BUILD_PLAN.md](../BLOCKRUN_CLI_BUILD_PLAN.md).
+<h1>BlockRun CLI</h1>
+<h3>One entry point for every BlockRun product.</h3>
 
-## Packages
+<p>Pay-per-request AI — chat, image, video, music, speech — plus live data<br>
+(web/X search, prediction markets, Pyth prices, 40+ chain RPC) and <b>any x402-paid endpoint</b>,<br>
+all billed from one local USDC wallet. <b>No API keys. No accounts. No subscriptions.</b></p>
+
+[![CI](https://img.shields.io/github/actions/workflow/status/BlockRunAI/blockrun-cli/ci.yml?branch=master&style=flat-square&label=CI)](https://github.com/BlockRunAI/blockrun-cli/actions)
+[![npm core](https://img.shields.io/npm/v/@blockrun/core.svg?style=flat-square&label=%40blockrun%2Fcore)](https://www.npmjs.com/package/@blockrun/core)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![x402](https://img.shields.io/badge/x402-USDC%20on%20Base-purple?style=flat-square)](https://x402.org)
+
+</div>
+
+```bash
+npm install -g @blockrun/cli
+
+blockrun status                                   # wallet auto-detected / created
+blockrun fund                                     # top up with USDC on Base
+blockrun run nvidia/deepseek-v4-flash "hello"     # free model — $0
+blockrun --json api POST v1/chat/completions --data '{…}' --quote   # price a call WITHOUT paying
+```
+
+## Why
+
+Agents can't sign up for accounts — but they can sign transactions. Every BlockRun tool bills x402 USDC micropayments from a local wallet (`~/.blockrun/.session`); this repo is the **shared kernel + umbrella entry point** that ties the family together:
 
 | Package | What it is |
 |---------|-----------|
-| `@blockrun/core` | Shared kernel: the JSON **output contract**, single-source **wallet** reader (`~/.blockrun/.session`), and **config**/chain resolution. Everything else depends on this. |
-| `@blockrun/cli` | The `blockrun` umbrella. Owns wallet/status; forwards `route`/`agent`/`mcp`/`phone` to independently-installed `blockrun-*` sub-products (gh-style prefix discovery). |
+| [`@blockrun/core`](packages/core) | The kernel every product depends on: single-source **wallet resolution**, the agent-native **`{ok,data\|error}` output contract**, config/paths. |
+| [`@blockrun/cli`](packages/cli) | The `blockrun` umbrella: ~40 commands (wallet, inference, multimodal, data, generic x402 `api`/`pay`, spending guardrails, agent skills) plus gh-style **prefix discovery** — any `blockrun-<x>` on PATH becomes `blockrun <x>`. |
+
+```
+        blockrun (umbrella CLI)
+        route→ClawRouter · agent→Franklin · mcp→BlockRun MCP · codex→clawrouter-codex
+              │ prefix discovery (blockrun-*)
+   ClawRouter │ Franklin │ MCP │ codex │ SDKs      ← independently installable
+              └───── all depend on ─────┘
+        @blockrun/core   (one wallet · one payment path · one contract)
+```
+
+## Highlights
+
+- **Agent-native**: every command emits `{"ok":true,"data":…}` / `{"ok":false,"error":…}` with `--format json|table|ndjson|csv`; `blockrun skills add` teaches Claude Code the whole CLI in one step.
+- **Money safety**: `--quote` prices any x402 call without paying; per-call cap (default $1) plus `limits`/`policy`/`spend` guardrails enforced against the real cost ledger.
+- **Composable**: sub-products stay independent — `clawrouter`, `franklin`, `blockrun-mcp` keep working unchanged; the umbrella is an extra door, not a new lock.
 
 ## Dev loop
 
 ```bash
 pnpm install
-pnpm test            # node:test across both packages
-pnpm -r build        # tsc → dist  (or: ./node_modules/.bin/tsc -p packages/<p>/tsconfig.json)
-pnpm cli status --json
+node --import tsx --test packages/*/test/*.test.ts   # 39 unit tests
+pnpm cli status --json                               # run the CLI from source
 ```
 
-## Design invariants
+## License
 
-- **One wallet.** `@blockrun/core` reads the same `~/.blockrun/.session` as `@blockrun/llm`, in the same order (`env → .session → legacy`). `blockrun route` and a standalone `clawrouter` see the same wallet.
-- **One output contract.** Every command returns `{"ok":true,"data",..,"meta"}` / `{"ok":false,"error"}`. `--format json|pretty|table|ndjson|csv`.
-- **Sub-products stay independent.** Any `blockrun-<x>` on PATH becomes `blockrun <x>`; core commands can never be shadowed; missing sub-products yield a structured install hint.
-
-## Commands (working)
-
-```
-blockrun status | wallet [create] | balance | fund | chain [base|sol]
-blockrun config <list|get|set> | doctor
-blockrun run <model> "<prompt>" | models [--free]
-blockrun route|agent|mcp|codex|phone ...   # forwarded to sub-products
-```
-
-`run`/`models`/`balance`/`doctor` go through `@blockrun/llm`, with the key resolved by
-`@blockrun/core` and handed to the SDK (never read twice, never sent anywhere).
-
-## Status
-
-Scaffold + core commands complete and tested (26 unit tests + live e2e: balance, free-model
-run, chain persistence). Next: the upstream extraction PRs (publish `@blockrun/core`, make
-`@blockrun/llm` depend on it) — pending npm publish + review.
+MIT
