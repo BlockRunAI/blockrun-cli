@@ -21,7 +21,7 @@ importers:
   packages/cli:
     dependencies:
       '@blockrun/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       '@blockrun/llm':
         specifier: ^3.5.0

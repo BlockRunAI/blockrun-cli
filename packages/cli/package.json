@@ -1,12 +1,13 @@
 {
   "name": "@blockrun/cli",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "One entry point for every BlockRun product — pay-per-request AI, live data, and any x402 endpoint from one USDC wallet. No API keys.",
   "type": "module",
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/BlockRunAI/blockrun-cli.git", "directory": "packages/cli" },
   "keywords": ["blockrun", "x402", "cli", "llm", "ai", "usdc", "wallet", "agent", "micropayments"],
   "publishConfig": { "access": "public" },
+  "engines": { "node": ">=20" },
   "bin": { "blockrun": "dist/cli.js" },
   "files": ["dist", "skills"],
   "scripts": {
@@ -14,7 +15,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@blockrun/core": "workspace:*",
+    "@blockrun/core": "workspace:^",
     "@blockrun/llm": "^3.5.0"
   }
 }
