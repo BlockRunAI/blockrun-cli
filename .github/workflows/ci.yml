@@ -10,12 +10,20 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: [22, 24]
+        include:
+          # pnpm 11 itself requires Node >=22.13. Keep Node 20 in the matrix
+          # with pnpm 10 because @blockrun/cli publicly supports Node >=20.
+          - node: 20
+            pnpm: 10
+          - node: 22
+            pnpm: 11
+          - node: 24
+            pnpm: 11
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
         with:
-          version: 11
+          version: ${{ matrix.pnpm }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
@@ -27,3 +35,9 @@ jobs:
           ./node_modules/.bin/tsc -p packages/cli/tsconfig.json
       - name: Unit tests
         run: node --import tsx --test packages/*/test/*.test.ts
+      - name: Published-artifact smoke test
+        run: |
+          mkdir -p .artifacts .smoke-prefix
+          (cd packages/cli && pnpm pack --pack-destination ../../.artifacts)
+          npm install --global --prefix "$PWD/.smoke-prefix" .artifacts/blockrun-cli-*.tgz
+          .smoke-prefix/bin/blockrun --json version
