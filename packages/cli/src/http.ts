@@ -11,10 +11,21 @@ export async function fetchWithTimeout(
   init: RequestInit = {},
   timeoutMs = HTTP_TIMEOUT_MS,
 ): Promise<Response> {
-  return fetch(url, {
-    ...init,
-    signal: init.signal ?? AbortSignal.timeout(timeoutMs),
-  });
+  const controller = new AbortController();
+  const upstream = init.signal;
+  const abortFromUpstream = () => controller.abort(upstream?.reason);
+  if (upstream?.aborted) abortFromUpstream();
+  else upstream?.addEventListener("abort", abortFromUpstream, { once: true });
+
+  const timeout = setTimeout(() => {
+    controller.abort(new DOMException(`request timed out after ${timeoutMs}ms`, "TimeoutError"));
+  }, timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+    upstream?.removeEventListener("abort", abortFromUpstream);
+  }
 }
 
 function enforceDeclaredLength(res: Response, maxBytes: number): void {
