@@ -29,6 +29,17 @@ already documented the correct order — the implementation, not the contract, w
   `adoptWallet(address)`, the deliberate migration path. Adoption matches on the *derived*
   address and backs up the outgoing `.session` first, so funds are never stranded.
 
+### CI
+
+- The published-artifact smoke test packed only the CLI, so npm resolved
+  `@blockrun/core` from the registry. It was therefore verifying the **last published**
+  core rather than the code under review — which is how core drifted three weeks behind
+  the SDK unnoticed — and any core version bump failed the step with `ETARGET` until it
+  had already shipped. Both packages are now packed and installed as roots.
+- The smoke step now asserts the security property against the packed artifact: a
+  provider `wallet.json` must not displace `.session`, and an address no discovered key
+  controls must not be adoptable. Verified to fail against the pre-fix build.
+
 ### CLI
 
 - Added `blockrun wallet list` and `blockrun wallet adopt <address>`.

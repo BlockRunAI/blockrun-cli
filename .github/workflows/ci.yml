@@ -38,6 +38,39 @@ jobs:
       - name: Published-artifact smoke test
         run: |
           mkdir -p .artifacts .smoke-prefix
+          # Pack core too and install both tarballs as roots. Installing only the CLI
+          # made npm resolve @blockrun/core from the registry, so this step verified the
+          # LAST PUBLISHED core rather than the code under review — and any core version
+          # bump failed here with ETARGET until it had already shipped.
+          (cd packages/core && pnpm pack --pack-destination ../../.artifacts)
           (cd packages/cli && pnpm pack --pack-destination ../../.artifacts)
-          npm install --global --prefix "$PWD/.smoke-prefix" .artifacts/blockrun-cli-*.tgz
+          npm install --global --prefix "$PWD/.smoke-prefix" \
+            .artifacts/blockrun-core-*.tgz .artifacts/blockrun-cli-*.tgz
           .smoke-prefix/bin/blockrun --json version
+
+      - name: Packed artifact honours canonical wallet selection
+        run: |
+          # A provider wallet.json must never displace ~/.blockrun/.session, and must
+          # never be reported under an address it holds no key for. Asserted against the
+          # packed artifact because that is what users actually install.
+          H="$(mktemp -d)"
+          mkdir -p "$H/.blockrun" "$H/.other"
+          # Hardhat account #0 — the user's real wallet.
+          echo "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" > "$H/.blockrun/.session"
+          sleep 1  # ensure the planted file is strictly newer
+          # Hardhat account #1's key, falsely claiming account #0's address.
+          echo '{"privateKey":"0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d","address":"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"}' > "$H/.other/wallet.json"
+
+          active=$(BLOCKRUN_HOME="$H" BLOCKRUN_WALLET_KEY= BASE_CHAIN_WALLET_KEY= \
+            .smoke-prefix/bin/blockrun --json wallet)
+          echo "$active"
+          echo "$active" | grep -q '"address":"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266","source":"session"' \
+            || { echo "::error::a provider wallet.json displaced the canonical wallet"; exit 1; }
+
+          # The planted address must not be adoptable either. err() writes the envelope
+          # to stderr and exits non-zero, so capture both streams.
+          adopt=$(BLOCKRUN_HOME="$H" BLOCKRUN_WALLET_KEY= BASE_CHAIN_WALLET_KEY= \
+            .smoke-prefix/bin/blockrun --json wallet adopt 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 2>&1 || true)
+          echo "$adopt"
+          echo "$adopt" | grep -q '"ok":false' \
+            || { echo "::error::adopted an address no discovered key controls"; exit 1; }
