@@ -15,8 +15,9 @@ import {
   loadWallet,
   createWallet,
   importWallet,
+  adoptWallet,
+  listDiscoveredWallets,
   addressFromKey,
-  scanWallets,
   resolveChain,
   paths,
   ok,
@@ -130,18 +131,46 @@ export function runCore(command: string, args: ParsedArgs): Envelope {
         }
         return ok({ address: w.address, privateKey: w.privateKey, source: w.source });
       }
+      if (sub === "list") {
+        // Wallets belonging to other applications. None of these are active.
+        const discovered = listDiscoveredWallets();
+        if (!discovered.length) return err("wallet", "no wallets discovered from other applications", 404);
+        return ok(
+          discovered.map((w) => ({ address: w.address, source: w.source, active: false })),
+          { hint: "adopt one deliberately with `blockrun wallet adopt <address>`" }
+        );
+      }
+      if (sub === "adopt") {
+        const address = args.rest[1]?.trim();
+        if (!address) return err("usage", "usage: blockrun wallet adopt <address>", 400);
+        try {
+          const w = adoptWallet(address);
+          return ok({ address: w.address, adopted: true }, { hint: "previous wallet backed up in ~/.blockrun/" });
+        } catch (e) {
+          return err("wallet", (e as Error).message, 404);
+        }
+      }
       if (sub === "recover") {
-        // Show every wallet the resolver can currently see, in priority order.
-        const found: Array<Record<string, string>> = [];
+        // Every key on this machine, in true resolution order. Only env/session/legacy
+        // can ever be active; discovered provider wallets are shown but never selected.
+        const found: Array<Record<string, string | boolean>> = [];
         const env = process.env.BLOCKRUN_WALLET_KEY || process.env.BASE_CHAIN_WALLET_KEY;
         if (env) found.push({ source: "env", address: safeAddr(env) });
-        for (const s of scanWallets()) found.push({ source: "provider wallet.json", address: s.address });
         const p = paths();
         for (const [src, file] of [["session", p.session], ["legacy", p.legacy]] as const) {
           if (fs.existsSync(file)) found.push({ source: src, address: safeAddr(fs.readFileSync(file, "utf8").trim()) });
         }
-        if (!found.length) return err("wallet", "no recoverable wallets found (env, provider, session, legacy)", 404);
-        return ok(found, { active: found[0].source });
+        // The resolver stops at the first of the above; everything after is inactive.
+        const activeSource = found.length ? (found[0].source as string) : null;
+        for (const [i, entry] of found.entries()) entry.active = i === 0;
+        for (const w of listDiscoveredWallets()) {
+          found.push({ source: `provider wallet.json (${w.source})`, address: w.address, active: false });
+        }
+        if (!found.length) return err("wallet", "no recoverable wallets found (env, session, legacy, provider)", 404);
+        return ok(found, {
+          active: activeSource,
+          ...(activeSource ? {} : { hint: "no active wallet — run `blockrun wallet create` or `wallet adopt <address>`" }),
+        });
       }
       const w = loadWallet();
       if (!w) return err("wallet", "No wallet found. Run `blockrun wallet create`.", 404);
@@ -160,7 +189,9 @@ Usage: blockrun [--json|--format <f>] [--chain base|sol] <command> [args]
 
 Wallet & status
   status                 wallet + chain overview
-  wallet [create|import <key>|export --yes|recover]
+  wallet [create|import <key>|export --yes|list|adopt <address>|recover]
+                         (list/adopt: wallets from other apps — never active
+                          until you adopt one deliberately)
   balance                USDC balance for the active wallet
   fund                   funding address + links
   chain [base|sol]       show or set the payment chain
