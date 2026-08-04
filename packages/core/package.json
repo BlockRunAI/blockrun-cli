@@ -1,6 +1,6 @@
 {
   "name": "@blockrun/core",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "description": "Shared kernel for all BlockRun products — wallet, x402 payment, config, and the agent-native JSON output contract.",
   "type": "module",
   "license": "MIT",

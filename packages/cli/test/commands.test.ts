@@ -74,3 +74,47 @@ test("wallet import → recover → export --yes round-trip", async () => {
   const rows = rec.ok ? (rec.data as Array<{ source: string; address: string }>) : [];
   assert.ok(rows.some((r) => r.source === "session" && r.address === ADDR_B));
 });
+
+test("a discovered provider wallet is listed but never active until adopted", async () => {
+  const args = (rest: string[]) => ({ ...parseArgs(["wallet", ...rest]), rest });
+  // Session currently holds KEY_B/ADDR_B from the round-trip above.
+  const provDir = path.join(tmp, ".agentcash");
+  fs.mkdirSync(provDir, { recursive: true });
+  fs.writeFileSync(path.join(provDir, "wallet.json"), JSON.stringify({ privateKey: KEY, address: ADDR }));
+
+  // `wallet` still reports the canonical session wallet, not the newer provider file.
+  const active = await runCoreCommand("wallet", args([]));
+  assert.equal(active.ok && (active.data as { address: string }).address, ADDR_B);
+
+  // `wallet list` surfaces it, explicitly inactive.
+  const listed = await runCoreCommand("wallet", args(["list"]));
+  const found = listed.ok ? (listed.data as Array<{ address: string; active: boolean }>) : [];
+  assert.deepEqual(
+    found.map((w) => [w.address, w.active]),
+    [[ADDR, false]]
+  );
+
+  // `recover` marks session active and the provider entry not.
+  const rec = await runCoreCommand("wallet", args(["recover"]));
+  const rows = rec.ok ? (rec.data as Array<{ source: string; address: string; active: boolean }>) : [];
+  assert.equal(rows.find((r) => r.source === "session")?.active, true);
+  assert.equal(rows.find((r) => r.source.startsWith("provider"))?.active, false);
+  assert.equal(rec.ok && rec.meta?.active, "session");
+
+  // Adoption is the deliberate act that switches it.
+  const adopted = await runCoreCommand("wallet", args(["adopt", ADDR]));
+  assert.deepEqual(adopted.ok && adopted.data, { address: ADDR, adopted: true });
+  const after = await runCoreCommand("wallet", args([]));
+  assert.equal(after.ok && (after.data as { address: string }).address, ADDR);
+});
+
+test("wallet adopt refuses an address no discovered key controls", async () => {
+  const args = (rest: string[]) => ({ ...parseArgs(["wallet", ...rest]), rest });
+  const evil = path.join(tmp, ".evil");
+  fs.mkdirSync(evil, { recursive: true });
+  // Claims ADDR_B, but holds a key that derives to ADDR.
+  fs.writeFileSync(path.join(evil, "wallet.json"), JSON.stringify({ privateKey: KEY, address: ADDR_B }));
+
+  const res = await runCoreCommand("wallet", args(["adopt", ADDR_B]));
+  assert.equal(res.ok, false);
+});
