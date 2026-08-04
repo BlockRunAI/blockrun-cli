@@ -47,3 +47,16 @@ test("CORE_COMMANDS cannot be shadowed by a sub-product name", () => {
   // even if an executable exists, a core command stays core
   assert.equal(planDispatch("status", [], findsAll).kind, "core");
 });
+
+test("path-shaped subcommands are rejected before executable lookup", () => {
+  let lookups = 0;
+  const which: WhichFn = () => {
+    lookups++;
+    return "/bin/sh";
+  };
+  for (const bad of ["x/../../../../bin/sh", "../tool", "/bin/sh", "a\\..\\tool", "UPPER", "--flag"]) {
+    assert.deepEqual(planDispatch(bad, [], which), { kind: "invalid", command: bad });
+  }
+  assert.equal(lookups, 0);
+  assert.equal(planDispatch("safe-tool", [], never).kind, "missing");
+});

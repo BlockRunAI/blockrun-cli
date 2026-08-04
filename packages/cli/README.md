@@ -45,7 +45,7 @@ Payments above the per-call cap (default **$1**) are refused unless you explicit
 
 | Group | Commands |
 |-------|----------|
-| Wallet | `status` `wallet create/import/export/recover` `balance` `fund` `chain` `config` `doctor` |
+| Wallet | `status` `wallet create` `wallet import --stdin` `wallet export/recover` `balance` `fund` `chain` `config` `doctor` |
 | Inference | `run <model> "<prompt>"` `chat` (REPL) `models [--free]` |
 | Multimodal | `image` (+`edit`) `video` `music` `speech` (+`voices`) `realface enroll` — URLs by default, `--out` saves |
 | Data | `search` `research` `predict` `crypto` `price` `rpc` `discover` |

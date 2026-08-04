@@ -92,7 +92,11 @@ function isExecutable(file: string): boolean {
 export type DispatchPlan =
   | { kind: "core"; command: string }
   | { kind: "run"; command: string; bin: string; args: string[] }
+  | { kind: "invalid"; command: string }
   | { kind: "missing"; command: string; candidates: string[]; pkg: string | null };
+
+/** Extension commands are single slugs, never paths or package-manager flags. */
+export const SAFE_COMMAND = /^[a-z0-9][a-z0-9-]*$/;
 
 /**
  * Decide what to do with `blockrun <command> ...rest`, without side effects.
@@ -102,6 +106,7 @@ export type DispatchPlan =
  */
 export function planDispatch(command: string, rest: string[], which: WhichFn): DispatchPlan {
   if (CORE_COMMANDS.has(command)) return { kind: "core", command };
+  if (!SAFE_COMMAND.test(command)) return { kind: "invalid", command };
 
   const generic = `blockrun-${command}`;
   const known = SUBPRODUCTS[command];

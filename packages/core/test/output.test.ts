@@ -29,6 +29,23 @@ test("render pretty formats objects as key: value and errors with ✗", () => {
   assert.equal(render(err("wallet", "not found", 404), "pretty"), "✗ wallet [404]: not found");
 });
 
+test("human-readable output escapes terminal control sequences", () => {
+  const rendered = render(
+    ok(
+      { value: "safe\u001b]52;c;Y2xpcGJvYXJk\u0007tail" },
+      { cost: 0.1, chain: "base\u001b]52;c;Y2xpcGJvYXJk\u0007" },
+    ),
+    "pretty",
+  );
+  assert.doesNotMatch(rendered, /[\u001b\u0007]/);
+  assert.match(rendered, /\\u001b.*\\u0007/);
+});
+
+test("CSV output quotes records and neutralizes spreadsheet formulas", () => {
+  const rendered = render(ok([{ value: '=HYPERLINK("https://example.invalid"),line\nnext' }]), "csv");
+  assert.equal(rendered, '"value"\n"\'=HYPERLINK(""https://example.invalid""),line\nnext"');
+});
+
 test("render ndjson streams array rows", () => {
   assert.equal(render(ok([{ a: 1 }, { a: 2 }]), "ndjson"), '{"a":1}\n{"a":2}');
 });

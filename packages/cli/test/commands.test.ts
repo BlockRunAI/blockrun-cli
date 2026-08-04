@@ -51,15 +51,20 @@ test("usage errors fire before any network/wallet work", async () => {
 test("wallet import → recover → export --yes round-trip", async () => {
   const args = (rest: string[]) => ({ ...parseArgs(["wallet", ...rest]), rest });
 
-  const imp = await runCoreCommand("wallet", args(["import", KEY]));
+  const unsafe = await runCoreCommand("wallet", args(["import", KEY]));
+  assert.equal(unsafe.ok, false);
+  const unsafeAfterFlag = await runCoreCommand("wallet", args(["import", "--force", KEY]));
+  assert.equal(unsafeAfterFlag.ok, false);
+
+  const imp = await runCoreCommand("wallet", args(["import", "--stdin"]), { readStdin: () => KEY });
   assert.deepEqual(imp.ok && imp.data, { address: ADDR, imported: true });
 
   // second import without --force refuses (409)
-  const dup = await runCoreCommand("wallet", args(["import", KEY_B]));
+  const dup = await runCoreCommand("wallet", args(["import", "--stdin"]), { readStdin: () => KEY_B });
   assert.equal(dup.ok, false);
 
   // --force overwrites
-  const forced = await runCoreCommand("wallet", args(["import", KEY_B, "--force"]));
+  const forced = await runCoreCommand("wallet", args(["import", "--stdin", "--force"]), { readStdin: () => KEY_B });
   assert.deepEqual(forced.ok && forced.data, { address: ADDR_B, imported: true });
 
   // export requires --yes

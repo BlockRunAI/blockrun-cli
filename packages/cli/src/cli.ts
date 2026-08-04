@@ -47,6 +47,10 @@ export interface ParsedArgs {
   profile?: string;
 }
 
+export interface CoreRuntime {
+  readStdin?: () => string;
+}
+
 /** Global flags are parsed only BEFORE the command; everything after is forwarded verbatim. */
 export function parseArgs(argv: string[]): ParsedArgs {
   const parsed: ParsedArgs = { rest: [], format: "pretty" };
@@ -98,7 +102,7 @@ function pkgVersion(name: string): string {
 }
 
 /** Runs a command and returns the envelope (side-effect-free core logic, for tests). */
-export function runCore(command: string, args: ParsedArgs): Envelope {
+export function runCore(command: string, args: ParsedArgs, runtime: CoreRuntime = {}): Envelope {
   const chain = resolveChain(args.chain);
   switch (command) {
     case "status": {
@@ -113,8 +117,15 @@ export function runCore(command: string, args: ParsedArgs): Envelope {
         return ok({ address: w.address, source: w.source, created: true });
       }
       if (sub === "import") {
-        const raw = args.rest[1]?.trim();
-        if (!raw) return err("usage", "usage: blockrun wallet import <0x-private-key> [--force]", 400);
+        const inline = args.rest.slice(1).find((value) => !value.startsWith("--"))?.trim() ?? "";
+        if (inline) {
+          return err("usage", "refusing private key in command arguments — pipe it to `wallet import --stdin`", 400);
+        }
+        if (!args.rest.includes("--stdin")) {
+          return err("usage", "usage: blockrun wallet import --stdin [--force] (pipe the key on stdin)", 400);
+        }
+        const raw = (runtime.readStdin ?? (() => fs.readFileSync(0, "utf8")))().trim();
+        if (!raw) return err("usage", "no private key received on stdin", 400);
         try {
           const w = importWallet(raw, { force: args.rest.includes("--force") });
           return ok({ address: w.address, imported: true });
@@ -189,7 +200,7 @@ Usage: blockrun [--json|--format <f>] [--chain base|sol] <command> [args]
 
 Wallet & status
   status                 wallet + chain overview
-  wallet [create|import <key>|export --yes|list|adopt <address>|recover]
+  wallet [create|import --stdin|export --yes|list|adopt <address>|recover]
                          (list/adopt: wallets from other apps — never active
                           until you adopt one deliberately)
   balance                USDC balance for the active wallet
@@ -248,7 +259,7 @@ Global flags
 Any \`blockrun-<x>\` on your PATH is auto-discovered as \`blockrun <x>\`.`;
 
 /** Resolve a core command to its envelope (sync helpers + async SDK-backed ones). */
-export async function runCoreCommand(command: string, args: ParsedArgs): Promise<Envelope> {
+export async function runCoreCommand(command: string, args: ParsedArgs, runtime: CoreRuntime = {}): Promise<Envelope> {
   const chain = resolveChain(args.chain);
   // Guardrails: paid commands are policy-checked before any network work.
   if (categoryOf(command) !== "other") {
@@ -266,7 +277,7 @@ export async function runCoreCommand(command: string, args: ParsedArgs): Promise
     case "status":
     case "wallet":
     case "version":
-      return runCore(command, args);
+      return runCore(command, args, runtime);
     // async, SDK-backed
     case "run":
       return runCmd(args.rest[0], args.rest.slice(1).join(" "), chain);
@@ -319,7 +330,7 @@ export async function runCoreCommand(command: string, args: ParsedArgs): Promise
     case "upgrade":
       return upgradeCmd();
     default:
-      return runCore(command, args);
+      return runCore(command, args, runtime);
   }
 }
 
@@ -349,6 +360,11 @@ export async function main(argv: string[]): Promise<void> {
       process.exitCode = r.status ?? 1;
       return;
     }
+    case "invalid":
+      emit(err("usage", "subcommand must contain only lowercase letters, digits, and hyphens", 400), {
+        format: args.format,
+      });
+      return;
     case "missing": {
       const pkg = plan.pkg ?? `(looked for: ${plan.candidates.join(", ")})`;
       emit(

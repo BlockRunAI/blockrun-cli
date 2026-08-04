@@ -29,7 +29,8 @@ Check `ok`, not the exit code alone (exit is 0/1 to match). `meta.cost` is the U
 ```bash
 # wallet & status
 blockrun --json status | balance | doctor | fund
-blockrun wallet create|import <key> --force|export --yes|recover
+blockrun wallet import --stdin [--force]  # pipe the key on stdin; never put it in argv
+blockrun wallet create|export --yes|recover
 blockrun chain base|sol · config list|get|set
 
 # inference

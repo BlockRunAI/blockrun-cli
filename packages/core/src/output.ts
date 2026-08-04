@@ -70,7 +70,7 @@ export function render(env: Envelope, format: OutputFormat): string {
 function renderPretty(env: Envelope): string {
   if (!env.ok) {
     const c = env.error.code !== undefined ? ` [${env.error.code}]` : "";
-    return `✗ ${env.error.type}${c}: ${env.error.message}`;
+    return `✗ ${escapeTerminalText(env.error.type)}${c}: ${escapeTerminalText(env.error.message)}`;
   }
   const lines: string[] = [];
   const { data } = env;
@@ -78,15 +78,17 @@ function renderPretty(env: Envelope): string {
     lines.push("(no output)");
   } else if (typeof data === "object" && !Array.isArray(data)) {
     for (const [k, v] of Object.entries(data as Record<string, unknown>)) {
-      lines.push(`${k}: ${formatScalar(v)}`);
+      lines.push(`${escapeTerminalText(k)}: ${escapeTerminalText(formatScalar(v))}`);
     }
   } else if (Array.isArray(data)) {
-    for (const row of data) lines.push(`• ${formatScalar(row)}`);
+    for (const row of data) lines.push(`• ${escapeTerminalText(formatScalar(row))}`);
   } else {
-    lines.push(String(data));
+    lines.push(escapeTerminalText(String(data)));
   }
   if (env.meta?.cost !== undefined) {
-    lines.push(`\n  cost: $${env.meta.cost}${env.meta.chain ? ` on ${env.meta.chain}` : ""}`);
+    lines.push(
+      `\n  cost: $${env.meta.cost}${env.meta.chain ? ` on ${escapeTerminalText(env.meta.chain)}` : ""}`,
+    );
   }
   return lines.join("\n");
 }
@@ -97,10 +99,30 @@ function renderTabular(env: Envelope, format: OutputFormat): string {
   const objs = rows.filter((r): r is Record<string, unknown> => typeof r === "object" && r !== null);
   if (objs.length === 0) return renderPretty(env);
   const cols = [...new Set(objs.flatMap((o) => Object.keys(o)))];
-  const sep = format === "csv" ? "," : "  ";
-  const header = cols.join(sep);
-  const body = objs.map((o) => cols.map((c) => formatScalar(o[c])).join(sep)).join("\n");
+  if (format === "csv") {
+    const header = cols.map(csvCell).join(",");
+    const body = objs.map((o) => cols.map((c) => csvCell(formatScalar(o[c]))).join(",")).join("\n");
+    return `${header}\n${body}`;
+  }
+  const header = cols.map(escapeTerminalText).join("  ");
+  const body = objs
+    .map((o) => cols.map((c) => escapeTerminalText(formatScalar(o[c]))).join("  "))
+    .join("\n");
   return `${header}\n${body}`;
+}
+
+/** Make untrusted text inert when written to a terminal while preserving tabs/newlines. */
+export function escapeTerminalText(value: string): string {
+  return value.replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, (char) => {
+    const hex = char.codePointAt(0)!.toString(16).padStart(4, "0");
+    return `\\u${hex}`;
+  });
+}
+
+/** RFC 4180 quoting plus spreadsheet formula neutralization. */
+function csvCell(value: string): string {
+  const inert = /^[\t\r ]*[=+\-@]/.test(value) ? `'${value}` : value;
+  return `"${inert.replace(/"/g, '""')}"`;
 }
 
 function formatScalar(v: unknown): string {

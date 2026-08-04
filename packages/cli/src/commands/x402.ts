@@ -14,6 +14,7 @@ import { parsePaymentRequired, extractPaymentDetails, createPaymentPayload, logC
 import { ok, err, resolvePrivateKey, addressFromKey, type Envelope } from "@blockrun/core";
 import { splitFlags } from "./media.js";
 import { readPolicy } from "./policy.js";
+import { fetchWithTimeout, readResponseText } from "../http.js";
 
 const DEFAULT_BASE = "https://blockrun.ai/api";
 
@@ -24,7 +25,7 @@ export function resolveUrl(target: string): string {
 }
 
 async function bodyOf(res: Response): Promise<unknown> {
-  const text = await res.text();
+  const text = await readResponseText(res);
   try {
     return JSON.parse(text);
   } catch {
@@ -48,14 +49,23 @@ export async function x402Fetch(
 
   let res: Response;
   try {
-    res = await fetch(url, reqInit);
+    res = await fetchWithTimeout(url, { ...reqInit, redirect: "manual" });
   } catch (e) {
     return err("network", (e as Error).message);
   }
 
+  if (res.status >= 300 && res.status < 400) {
+    return err("redirect", "refusing redirect during x402 payment negotiation", res.status);
+  }
+
   // Not payment-gated (or already paid/free) — return as-is.
   if (res.status !== 402) {
-    const data = await bodyOf(res);
+    let data: unknown;
+    try {
+      data = await bodyOf(res);
+    } catch (e) {
+      return err("response", (e as Error).message, 413);
+    }
     return res.ok
       ? ok(data as Record<string, unknown>, { url, paid: false })
       : err("http", typeof data === "string" ? data : JSON.stringify(data).slice(0, 400), res.status);
@@ -105,11 +115,23 @@ export async function x402Fetch(
 
   let paid: Response;
   try {
-    paid = await fetch(url, { ...reqInit, headers: { ...(reqInit.headers as object), "X-PAYMENT": paymentHeader } });
+    paid = await fetchWithTimeout(url, {
+      ...reqInit,
+      redirect: "manual",
+      headers: { ...(reqInit.headers as object), "X-PAYMENT": paymentHeader },
+    });
   } catch (e) {
     return err("network", (e as Error).message);
   }
-  const data = await bodyOf(paid);
+  if (paid.status >= 300 && paid.status < 400) {
+    return err("redirect", "refusing redirect after x402 payment", paid.status);
+  }
+  let data: unknown;
+  try {
+    data = await bodyOf(paid);
+  } catch (e) {
+    return err("response", (e as Error).message, 413);
+  }
   if (!paid.ok) {
     return err("http", typeof data === "string" ? data : JSON.stringify(data).slice(0, 400), paid.status);
   }

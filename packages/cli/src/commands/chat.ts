@@ -8,7 +8,8 @@
 
 import * as readline from "node:readline";
 import { LLMClient } from "@blockrun/llm";
-import { resolvePrivateKey } from "@blockrun/core";
+import { escapeTerminalText, resolvePrivateKey } from "@blockrun/core";
+import { checkPolicy } from "./policy.js";
 
 interface ChatMsg {
   role: "user" | "assistant";
@@ -17,63 +18,90 @@ interface ChatMsg {
 
 const DEFAULT_MODEL = "nvidia/deepseek-v4-flash"; // free — no spend until the user picks a paid model
 
-export async function chatRepl(modelFlag?: string): Promise<number> {
+export interface ChatClient {
+  chatCompletion(model: string, messages: unknown): Promise<unknown>;
+}
+
+export interface ChatReplOptions {
+  client?: ChatClient;
+  input?: NodeJS.ReadableStream;
+  output?: NodeJS.WritableStream;
+  error?: NodeJS.WritableStream;
+  policyCheck?: typeof checkPolicy;
+}
+
+export async function chatRepl(modelFlag?: string, opts: ChatReplOptions = {}): Promise<number> {
+  const output = opts.output ?? process.stdout;
+  const error = opts.error ?? process.stderr;
   const resolved = resolvePrivateKey();
-  if (!resolved) {
-    process.stderr.write("✗ wallet: No wallet found. Run `blockrun wallet create`.\n");
+  if (!resolved && !opts.client) {
+    error.write("✗ wallet: No wallet found. Run `blockrun wallet create`.\n");
     return 1;
   }
-  const client = new LLMClient({ privateKey: resolved.privateKey });
+  const client = opts.client ?? new LLMClient({ privateKey: resolved!.privateKey });
+  const policyCheck = opts.policyCheck ?? checkPolicy;
   let model = modelFlag || DEFAULT_MODEL;
   const history: ChatMsg[] = [];
   let spent = 0;
 
-  process.stdout.write(`blockrun chat — model: ${model} (/model <id> to switch, /exit to quit)\n`);
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: "you> " });
+  output.write(`blockrun chat — model: ${escapeTerminalText(model)} (/model <id> to switch, /exit to quit)\n`);
+  const rl = readline.createInterface({ input: opts.input ?? process.stdin, output, prompt: "you> " });
+  let closed = false;
+  rl.once("close", () => {
+    closed = true;
+  });
+  const reprompt = () => {
+    if (!closed) rl.prompt();
+  };
   rl.prompt();
 
-  return new Promise<number>((resolve) => {
-    let closed = false;
-    const reprompt = () => {
-      if (!closed) rl.prompt();
-    };
-    rl.on("close", () => {
-      closed = true;
-      resolve(0);
-    });
-    rl.on("line", (line) => {
-      void (async () => {
-        const input = line.trim();
-        if (!input) return reprompt();
-        if (input === "/exit" || input === "/quit") return rl.close();
-        if (input.startsWith("/model")) {
-          const next = input.split(/\s+/)[1];
-          if (next) {
-            model = next;
-            process.stdout.write(`model → ${model}\n`);
-          } else process.stdout.write(`model: ${model}\n`);
-          return reprompt();
-        }
-        if (input === "/cost") {
-          process.stdout.write(`session spend: ~$${spent.toFixed(4)}\n`);
-          return reprompt();
-        }
-        history.push({ role: "user", content: input });
-        try {
-          const res = (await client.chatCompletion(model, history as never)) as unknown as {
-            choices?: Array<{ message?: { content?: string } }>;
-            usage?: { total_cost?: number };
-          };
-          const reply = res.choices?.[0]?.message?.content ?? "(empty reply)";
-          if (typeof res.usage?.total_cost === "number") spent += res.usage.total_cost;
-          history.push({ role: "assistant", content: reply });
-          process.stdout.write(`${reply}\n`);
-        } catch (e) {
-          history.pop(); // drop the failed turn so retries are clean
-          process.stderr.write(`✗ ${(e as Error).message}\n`);
-        }
-        reprompt();
-      })();
-    });
-  });
+  for await (const line of rl) {
+    const input = line.trim();
+    if (!input) {
+      reprompt();
+      continue;
+    }
+    if (input === "/exit" || input === "/quit") {
+      rl.close();
+      break;
+    }
+    if (input.startsWith("/model")) {
+      const next = input.split(/\s+/)[1];
+      if (next) {
+        model = next;
+        output.write(`model → ${escapeTerminalText(model)}\n`);
+      } else output.write(`model: ${escapeTerminalText(model)}\n`);
+      reprompt();
+      continue;
+    }
+    if (input === "/cost") {
+      output.write(`session spend: ~$${spent.toFixed(4)}\n`);
+      reprompt();
+      continue;
+    }
+
+    const gate = policyCheck("chat");
+    if (!gate.allowed) {
+      error.write(`✗ policy: ${escapeTerminalText(gate.reason)}\n`);
+      reprompt();
+      continue;
+    }
+
+    history.push({ role: "user", content: input });
+    try {
+      const res = (await client.chatCompletion(model, history as never)) as {
+        choices?: Array<{ message?: { content?: string } }>;
+        usage?: { total_cost?: number };
+      };
+      const reply = res.choices?.[0]?.message?.content ?? "(empty reply)";
+      if (typeof res.usage?.total_cost === "number") spent += res.usage.total_cost;
+      history.push({ role: "assistant", content: reply });
+      output.write(`${escapeTerminalText(reply)}\n`);
+    } catch (e) {
+      history.pop();
+      error.write(`✗ ${escapeTerminalText((e as Error).message)}\n`);
+    }
+    reprompt();
+  }
+  return 0;
 }

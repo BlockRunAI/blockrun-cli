@@ -6,9 +6,9 @@
  * when `--out <file>` is given. Key resolution stays in @blockrun/core.
  */
 
-import * as fs from "node:fs";
 import { ImageClient, VideoClient, MusicClient, SpeechClient, PortraitClient } from "@blockrun/llm";
 import { ok, err, resolvePrivateKey, type Envelope } from "@blockrun/core";
+import { fetchWithTimeout, MEDIA_TIMEOUT_MS, writeResponseToFile } from "../http.js";
 
 type Flags = Record<string, string | boolean>;
 
@@ -37,9 +37,9 @@ function key(): `0x${string}` | null {
 const NO_WALLET = err("wallet", "No wallet found. Run `blockrun wallet create`.", 404);
 
 async function download(url: string, out: string): Promise<string> {
-  const res = await fetch(url);
+  const res = await fetchWithTimeout(url, {}, MEDIA_TIMEOUT_MS);
   if (!res.ok) throw new Error(`download failed: HTTP ${res.status}`);
-  fs.writeFileSync(out, Buffer.from(await res.arrayBuffer()));
+  await writeResponseToFile(res, out);
   return out;
 }
 
