@@ -1,0 +1,104 @@
+name: Publish to npm
+
+# Why this exists: this repo had NO publish workflow, so every release depended on
+# someone running `npm publish` twice, in the right order, from a laptop. Twice that
+# did not happen — `@blockrun/cli` 0.1.1 (2026-07-17) was tagged and changelogged but
+# never published, and `@blockrun/core` 0.1.0 sat built-but-unpublished carrying a
+# payment-signing security fix while every installed CLI kept resolving the defective
+# `@blockrun/core@^0.0.3`. A missing release step is not a small process gap here; it
+# is how a real-money fix stayed off npm.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch: # manual trigger, e.g. to unstick a failed publish
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for npm --provenance attestation
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: |
+          ./node_modules/.bin/tsc -p packages/core/tsconfig.json
+          ./node_modules/.bin/tsc -p packages/cli/tsconfig.json
+
+      - name: Tests
+        run: node --import tsx --test packages/*/test/*.test.ts
+
+      # core FIRST and as its own step. The CLI depends on it by range, so a CLI
+      # published ahead of core would be uninstallable until core landed.
+      - name: Resolve core version
+        id: core
+        run: |
+          V=$(node -p "require('./packages/core/package.json').version")
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if npm view "@blockrun/core@$V" version >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "⚠️ @blockrun/core@$V already on npm, skipping"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # pnpm publish, NOT npm publish: only pnpm rewrites the `workspace:^` protocol
+      # into a real semver range at pack time. `npm publish` would ship a literal
+      # "@blockrun/core": "workspace:^" that no consumer can resolve.
+      - name: Publish @blockrun/core
+        if: steps.core.outputs.published != 'true'
+        run: pnpm --filter @blockrun/core publish --provenance --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Wait for core to be resolvable
+        if: steps.core.outputs.published != 'true'
+        run: |
+          for i in $(seq 1 30); do
+            npm view "@blockrun/core@${{ steps.core.outputs.version }}" version >/dev/null 2>&1 && exit 0
+            sleep 5
+          done
+          echo "::error::@blockrun/core@${{ steps.core.outputs.version }} never became resolvable"
+          exit 1
+
+      - name: Resolve cli version
+        id: cli
+        run: |
+          V=$(node -p "require('./packages/cli/package.json').version")
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if npm view "@blockrun/cli@$V" version >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "⚠️ @blockrun/cli@$V already on npm, skipping"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish @blockrun/cli
+        if: steps.cli.outputs.published != 'true'
+        run: pnpm --filter @blockrun/cli publish --provenance --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "core ${{ steps.core.outputs.version }} — published=${{ steps.core.outputs.published == 'false' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "cli  ${{ steps.cli.outputs.version }} — published=${{ steps.cli.outputs.published == 'false' }}" >> "$GITHUB_STEP_SUMMARY"
