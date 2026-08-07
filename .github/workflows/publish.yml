@@ -66,12 +66,19 @@ jobs:
       #   pnpm pack  — only pnpm rewrites the `workspace:^` protocol into a real
       #                semver range. `npm pack` would ship a literal
       #                "@blockrun/core": "workspace:^" that no consumer can resolve.
-      #   npm publish — `pnpm publish` attempts an OIDC token exchange first; when
-      #                 trusted publishing is not configured for the package that
-      #                 exchange 404s, pnpm falls back to the token, and the registry
-      #                 then demands an interactive OTP (ERR_PNPM_OTP_NON_INTERACTIVE)
-      #                 which no CI run can answer. `npm publish` with the same token
-      #                 publishes fine — this is exactly how ClawRouter ships.
+      #   npm publish — matches how ClawRouter ships, and gives a clearer error
+      #                 surface. `pnpm publish` additionally attempts an OIDC token
+      #                 exchange first; with trusted publishing unconfigured for
+      #                 these packages that 404s and it reports the failure as
+      #                 ERR_PNPM_OTP_NON_INTERACTIVE, which reads like a pnpm bug.
+      #                 npm reports the same underlying condition as plain EOTP.
+      #
+      # REQUIRED: secrets.NPM_TOKEN must be an **Automation** token. Automation
+      # tokens are the only kind that bypass this account's "2FA for writes"
+      # setting. A Publish (or granular) token authenticates fine — `npm whoami`
+      # and `npm access` both succeed — and then fails at the write with EOTP,
+      # asking for a one-time password no CI run can supply. That is what killed
+      # the first two runs of this workflow on 2026-08-07.
       #
       # Verified: blockrun-cli-0.2.0.tgz produced by pnpm pack declares
       # "@blockrun/core": "^0.1.0", not the workspace protocol.
