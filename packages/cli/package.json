@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "@blockrun/core": "workspace:^",
-    "@blockrun/llm": "^3.10.0"
+    "@blockrun/llm": "^3.9.0"
   }
 }
 

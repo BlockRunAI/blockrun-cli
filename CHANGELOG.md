@@ -4,27 +4,15 @@ All notable changes to the BlockRun CLI are documented here.
 
 ## 2026-08-08 — `@blockrun/core` 0.1.1, `@blockrun/cli` 0.2.1
 
-### Changed — `@blockrun/llm` floor moves to `^3.10.0`
-
-3.10.0 moved `@solana/web3.js` and `@solana/spl-token` from `optionalDependencies` to optional **peer** dependencies. npm auto-installs the former and not the latter, which is what finally kept `bigint-buffer` — carrying an unpatched `toBigIntLE()` buffer overflow ([GHSA-3gc7-fjrx-p6mg](https://github.com/advisories/GHSA-3gc7-fjrx-p6mg)) with no fixed release anywhere — out of consumers' lockfiles.
-
-`^3.9.0` already resolved to 3.10.0 in practice. Pinning the floor makes it guaranteed rather than incidental.
-
-If you use this CLI for **Solana** payments, install the two packages explicitly:
-
-```bash
-npm install @solana/web3.js @solana/spl-token
-```
-
-Base / EVM-only users do nothing.
-
 ### Changed — published from CI, with provenance
 
-0.1.0 and 0.2.0 were published from a laptop, because four CI attempts died on `EOTP`: each package's npmjs.com "Publishing access" rejected every token type, and the ordering was only discovered after the fact. Shipping the payment-signing fix mattered more than the attestation at that moment, so they went out unsigned.
+0.1.0 and 0.2.0 were published from a laptop, because four CI attempts died on `EOTP`: each package's npmjs.com "Publishing access" rejected every token type, and the ordering was only diagnosed afterwards. Shipping the payment-signing takeover fix mattered more than the attestation at that moment, so they went out unsigned.
 
-That trade is now paid back. These versions publish through `.github/workflows/publish.yml`, so both carry a **provenance attestation** linking the tarball to this repo, this commit, and this workflow — verifiable in Sigstore's public transparency log. `@blockrun/core` resolves wallet keys and signs x402 payments; it is the last package in this org that should be unverifiable.
+These versions publish through `.github/workflows/publish.yml`, so both carry a **provenance attestation** linking the tarball to this repo, this commit, and this workflow — verifiable in Sigstore's public transparency log. `@blockrun/core` resolves wallet keys and signs x402 payments; it is the last package in this org that should be unverifiable.
 
-0.1.0 and 0.2.0 remain correct and installable. npm does not allow attaching an attestation to an already-published version, which is the only reason this is a new release rather than a re-sign.
+0.1.0 and 0.2.0 remain correct and installable. npm does not allow attaching an attestation to an already-published version, which is the only reason this is a new release rather than a re-sign. No functional change from 0.1.0 / 0.2.0.
+
+> **Known, not fixed here:** `pnpm-lock.yaml` pins `@blockrun/llm` at **3.9.0**. 3.10.0 moved the Solana packages to optional peers, which is what keeps `bigint-buffer` (unpatched `toBigIntLE` overflow, [GHSA-3gc7-fjrx-p6mg](https://github.com/advisories/GHSA-3gc7-fjrx-p6mg)) out of dependency trees. Published consumers are unaffected — `^3.9.0` resolves to 3.10.0 for them — but this repo's own dev tree still installs the old one. Fixing it needs a real `pnpm install` to regenerate the lockfile, not a hand edit.
 
 ## 2026-08-04 — `@blockrun/core` 0.1.0, `@blockrun/cli` 0.2.0
 
