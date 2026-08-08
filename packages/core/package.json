@@ -1,22 +1,48 @@
 {
   "name": "@blockrun/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shared kernel for all BlockRun products — wallet, x402 payment, config, and the agent-native JSON output contract.",
   "type": "module",
   "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/BlockRunAI/blockrun-cli.git", "directory": "packages/core" },
-  "keywords": ["blockrun", "x402", "wallet", "cli", "agent-native"],
-  "publishConfig": { "access": "public" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BlockRunAI/blockrun-cli.git",
+    "directory": "packages/core"
+  },
+  "keywords": [
+    "blockrun",
+    "x402",
+    "wallet",
+    "cli",
+    "agent-native"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
-    "./output": { "types": "./dist/output.d.ts", "import": "./dist/output.js" },
-    "./wallet": { "types": "./dist/wallet.d.ts", "import": "./dist/wallet.js" },
-    "./config": { "types": "./dist/config.d.ts", "import": "./dist/config.js" },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./output": {
+      "types": "./dist/output.d.ts",
+      "import": "./dist/output.js"
+    },
+    "./wallet": {
+      "types": "./dist/wallet.d.ts",
+      "import": "./dist/wallet.js"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "import": "./dist/config.js"
+    },
     "./package.json": "./package.json"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"
@@ -25,3 +51,4 @@
     "viem": "^2.21.0"
   }
 }
+

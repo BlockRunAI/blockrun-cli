@@ -1,6 +1,6 @@
 {
   "name": "@blockrun/cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "One entry point for every BlockRun product — pay-per-request AI, live data, and any x402 endpoint from one USDC wallet. No API keys.",
   "type": "module",
   "license": "MIT",
@@ -39,6 +39,7 @@
   },
   "dependencies": {
     "@blockrun/core": "workspace:^",
-    "@blockrun/llm": "^3.9.0"
+    "@blockrun/llm": "^3.10.0"
   }
 }
+
