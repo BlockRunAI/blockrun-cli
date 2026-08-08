@@ -73,12 +73,26 @@ jobs:
       #                 ERR_PNPM_OTP_NON_INTERACTIVE, which reads like a pnpm bug.
       #                 npm reports the same underlying condition as plain EOTP.
       #
-      # REQUIRED: secrets.NPM_TOKEN must be an **Automation** token. Automation
-      # tokens are the only kind that bypass this account's "2FA for writes"
-      # setting. A Publish (or granular) token authenticates fine — `npm whoami`
-      # and `npm access` both succeed — and then fails at the write with EOTP,
-      # asking for a one-time password no CI run can supply. That is what killed
-      # the first two runs of this workflow on 2026-08-07.
+      # REQUIRED: secrets.NPM_TOKEN must be a **granular access token with
+      # "Bypass 2FA" enabled**, AND each package's npmjs.com "Publishing access"
+      # must be set to "Require two-factor authentication OR a granular access
+      # token with bypass 2fa enabled".
+      #
+      # Not an Automation token, and not a classic token of any kind. The default
+      # package setting is "Require 2FA and DISALLOW bypass 2fa tokens", under
+      # which every token is rejected at the write with EOTP no matter its type —
+      # including `npm access set mfa=...`, so you cannot even relax the setting
+      # from CI. That killed four runs on 2026-08-07/08. The tell is that
+      # `npm whoami` and `npm access list` both succeed while the publish fails:
+      # the token authenticates fine, the package policy just refuses tokens.
+      #
+      # BETTER, and what this repo should move to: configure a **Trusted
+      # Publisher** (OIDC) for both packages at
+      # https://www.npmjs.com/package/<pkg>/access. Trusted publishers work
+      # regardless of the Publishing access setting, so the strict "disallow
+      # bypass 2fa tokens" option can stay selected and no long-lived credential
+      # exists to leak or rotate. @blockrun/clawrouter already ships this way —
+      # its published versions carry provenance attestations.
       #
       # Verified: blockrun-cli-0.2.0.tgz produced by pnpm pack declares
       # "@blockrun/core": "^0.1.0", not the workspace protocol.
