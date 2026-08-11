@@ -24,8 +24,8 @@ importers:
         specifier: workspace:^
         version: link:../core
       '@blockrun/llm':
-        specifier: ^3.9.0
-        version: 3.9.0(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(utf-8-validate@6.0.6)
+        specifier: ^3.10.0
+        version: 3.11.0(@solana/spl-token@0.4.14(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6))(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(utf-8-validate@6.0.6))(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6))(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
 
   packages/core:
     dependencies:
@@ -45,13 +45,19 @@ packages:
     resolution: {integrity: sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw==}
     engines: {node: '>=6.9.0'}
 
-  '@blockrun/llm@3.9.0':
-    resolution: {integrity: sha512-d72COH2mIn4pKuUTv/JOcF1Ut01vcpDwGsMYst0NhGnES132goJ+KtrzrVnwzyECZx3287tw6xWWcJNFQLYeww==}
+  '@blockrun/llm@3.11.0':
+    resolution: {integrity: sha512-ZWoNBGMTV1tFRag+9FhJz4c1LY5rqlfJtu1128LNn4b5OcxXRQppuItN5Wsz8pWgs2a1VtHzx2yu4/+1CSrsBw==}
     engines: {node: '>=20'}
     peerDependencies:
-      '@blockrun/clawrouter': ^0.12.222
+      '@blockrun/clawrouter': ^0.12.242
+      '@solana/spl-token': ^0.4.14
+      '@solana/web3.js': ^1.98.4
     peerDependenciesMeta:
       '@blockrun/clawrouter':
+        optional: true
+      '@solana/spl-token':
+        optional: true
+      '@solana/web3.js':
         optional: true
 
   '@esbuild/aix-ppc64@0.28.1':
@@ -709,7 +715,7 @@ snapshots:
   '@babel/runtime@7.29.7':
     optional: true
 
-  '@blockrun/llm@3.9.0(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(utf-8-validate@6.0.6)':
+  '@blockrun/llm@3.11.0(@solana/spl-token@0.4.14(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6))(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(utf-8-validate@6.0.6))(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6))(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)':
     dependencies:
       bs58: 6.0.0
       viem: 2.54.6(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
@@ -720,7 +726,6 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - encoding
-      - fastestsmallesttextencoderdecoder
       - typescript
       - utf-8-validate
       - zod
