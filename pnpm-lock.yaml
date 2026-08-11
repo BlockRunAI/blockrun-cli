@@ -25,7 +25,7 @@ importers:
         version: link:../core
       '@blockrun/llm':
         specifier: ^3.10.0
-        version: 3.11.0(@solana/spl-token@0.4.14(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6))(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(utf-8-validate@6.0.6))(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6))(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
+        version: 3.10.0(@solana/spl-token@0.4.14(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6))(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(utf-8-validate@6.0.6))(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6))(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
 
   packages/core:
     dependencies:
@@ -45,11 +45,11 @@ packages:
     resolution: {integrity: sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw==}
     engines: {node: '>=6.9.0'}
 
-  '@blockrun/llm@3.11.0':
-    resolution: {integrity: sha512-ZWoNBGMTV1tFRag+9FhJz4c1LY5rqlfJtu1128LNn4b5OcxXRQppuItN5Wsz8pWgs2a1VtHzx2yu4/+1CSrsBw==}
+  '@blockrun/llm@3.10.0':
+    resolution: {integrity: sha512-/0SgkEc++WoNnyS6yH8NIfCCHE4wJUqZOQlTKIuuX26FyeYwBLAaYqd4/7+mEx/IiBJx/JHxtbsbtYcFLuVFqA==}
     engines: {node: '>=20'}
     peerDependencies:
-      '@blockrun/clawrouter': ^0.12.242
+      '@blockrun/clawrouter': ^0.12.222
       '@solana/spl-token': ^0.4.14
       '@solana/web3.js': ^1.98.4
     peerDependenciesMeta:
@@ -715,7 +715,7 @@ snapshots:
   '@babel/runtime@7.29.7':
     optional: true
 
-  '@blockrun/llm@3.11.0(@solana/spl-token@0.4.14(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6))(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(utf-8-validate@6.0.6))(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6))(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)':
+  '@blockrun/llm@3.10.0(@solana/spl-token@0.4.14(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6))(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(utf-8-validate@6.0.6))(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6))(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)':
     dependencies:
       bs58: 6.0.0
       viem: 2.54.6(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)
