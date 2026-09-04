@@ -1,3 +1,4 @@
+import { resolveApiKey, PORTAL_URL } from "@blockrun/core";
 /**
  * Spending guardrails — the Vishwa-inspired policy layer.
  *
@@ -110,6 +111,9 @@ export function checkPolicy(command: string): { allowed: true } | { allowed: fal
   if (p.allow && p.allow.length > 0 && !p.allow.includes(cat)) {
     return { allowed: false, reason: `category "${cat}" is not in the allow list (${p.allow.join(",")})` };
   }
+  if (resolveApiKey() && (p.daily !== undefined || p.monthly !== undefined || p.perCall !== undefined)) {
+    return { allowed: false, reason: "Wallet ledger spending limits cannot enforce account credit limits. Configure account limits in the portal, then explicitly reset local wallet limits to use account mode." };
+  }
   if (p.daily !== undefined || p.monthly !== undefined) {
     const s = spendSummary();
     if (p.daily !== undefined && s.today >= p.daily) {
@@ -173,6 +177,7 @@ export function policyCmd(rest: string[]): Envelope {
 }
 
 export function spendCmd(rest: string[]): Envelope {
+  if (resolveApiKey()) return ok({ authMode: "api-key", costSource: "account_portal", usage: `${PORTAL_URL}/dashboard/credits` });
   const window = rest[0] ?? "all";
   const s = spendSummary();
   if (window === "today") return ok({ today: `$${s.today.toFixed(4)}` });

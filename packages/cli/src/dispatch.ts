@@ -15,6 +15,8 @@ import * as path from "node:path";
 /** Commands the umbrella owns itself — a sub-product can never shadow these. */
 export const CORE_COMMANDS = new Set([
   "status",
+  "login",
+  "logout",
   "wallet",
   "balance",
   "fund",

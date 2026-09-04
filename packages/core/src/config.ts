@@ -77,11 +77,18 @@ export function writeConfig(patch: BlockrunConfig): BlockrunConfig {
   return merged;
 }
 
-/** Resolve the active payment chain: explicit flag > env > persisted config > default (base). */
+/** Resolve the active payment chain: explicit flag > env > persisted config > new-user default (solana), preserving Base-only wallets. */
 export function resolveChain(flag?: string): Chain {
   if (flag) return coerceChain(flag);
   if (process.env.BLOCKRUN_CHAIN) return coerceChain(process.env.BLOCKRUN_CHAIN);
   const cfg = readConfig();
   if (cfg.chain) return coerceChain(cfg.chain);
-  return "base";
+  const p = paths();
+  for (const name of ["payment-chain", ".chain"]) {
+    const file = path.join(p.dir, name);
+    if (fs.existsSync(file)) return coerceChain(fs.readFileSync(file, "utf8").trim());
+  }
+  const base = process.env.BLOCKRUN_WALLET_KEY || process.env.BASE_CHAIN_WALLET_KEY || fs.existsSync(p.session) || fs.existsSync(p.legacy);
+  const sol = process.env.SOLANA_WALLET_KEY || fs.existsSync(path.join(p.dir, ".solana-session")) || fs.existsSync(p.solana);
+  return base && !sol ? "base" : "sol";
 }

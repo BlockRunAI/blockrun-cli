@@ -7,8 +7,10 @@
  */
 
 import { ImageClient, VideoClient, MusicClient, SpeechClient, PortraitClient } from "@blockrun/llm";
-import { ok, err, resolvePrivateKey, type Envelope } from "@blockrun/core";
+import { ok, err, type Envelope } from "@blockrun/core";
 import { fetchWithTimeout, MEDIA_TIMEOUT_MS, writeResponseToFile } from "../http.js";
+
+import { sdkOptions, commandError } from "./auth.js";
 
 type Flags = Record<string, string | boolean>;
 
@@ -30,11 +32,7 @@ export function splitFlags(rest: string[]): { words: string[]; flags: Flags } {
   return { words, flags };
 }
 
-function key(): `0x${string}` | null {
-  return resolvePrivateKey()?.privateKey ?? null;
-}
 
-const NO_WALLET = err("wallet", "No wallet found. Run `blockrun wallet create`.", 404);
 
 async function download(url: string, out: string): Promise<string> {
   const res = await fetchWithTimeout(url, {}, MEDIA_TIMEOUT_MS);
@@ -53,10 +51,10 @@ async function finish(urls: string[], flags: Flags, meta: Record<string, unknown
 /** blockrun image "<prompt>" [--model][--size][--out f.png] · image edit <img-url> "<prompt>" */
 export async function imageCmd(rest: string[]): Promise<Envelope> {
   const { words, flags } = splitFlags(rest);
-  const k = key();
-  if (!k) return NO_WALLET;
-  const client = new ImageClient({ privateKey: k });
+  if (words[0] === "edit" && (!words[1] || !words[2])) return err("usage", 'usage: blockrun image edit <image-url> "<prompt>"', 400);
+  if (!words.length) return err("usage", 'usage: blockrun image "<prompt>" [--model m] [--size WxH] [--out f.png]', 400);
   try {
+    const client = new ImageClient(sdkOptions());
     if (words[0] === "edit") {
       const [, image, prompt] = words;
       if (!image || !prompt) return err("usage", 'usage: blockrun image edit <image-url> "<prompt>"', 400);
@@ -71,54 +69,49 @@ export async function imageCmd(rest: string[]): Promise<Envelope> {
     const r = await client.generate(prompt, opts);
     return finish(r.data.map((d) => d.url), flags, { kind: "image" });
   } catch (e) {
-    return err("image", (e as Error).message);
+    return commandError("image", e);
   }
 }
 
 /** blockrun video "<prompt>" [--model][--duration s][--out f.mp4] */
 export async function videoCmd(rest: string[]): Promise<Envelope> {
   const { words, flags } = splitFlags(rest);
-  const k = key();
-  if (!k) return NO_WALLET;
   const prompt = words.join(" ");
   if (!prompt) return err("usage", 'usage: blockrun video "<prompt>" [--model m] [--duration s] [--out f.mp4]', 400);
   try {
     const opts: Record<string, unknown> = {};
     if (flags.model) opts.model = String(flags.model);
-    if (flags.duration) opts.duration = Number(flags.duration);
-    const r = await new VideoClient({ privateKey: k }).generate(prompt, opts);
+    if (flags.duration) opts.durationSeconds = Number(flags.duration);
+    const r = await new VideoClient(sdkOptions()).generate(prompt, opts);
     const urls = (r.data as Array<{ url: string }>).map((d) => d.url);
     return finish(urls, flags, { model: r.model, kind: "video" });
   } catch (e) {
-    return err("video", (e as Error).message);
+    return commandError("video", e);
   }
 }
 
 /** blockrun music "<prompt>" [--out f.mp3] */
 export async function musicCmd(rest: string[]): Promise<Envelope> {
   const { words, flags } = splitFlags(rest);
-  const k = key();
-  if (!k) return NO_WALLET;
   const prompt = words.join(" ");
   if (!prompt) return err("usage", 'usage: blockrun music "<prompt>" [--out f.mp3]', 400);
   try {
-    const r = await new MusicClient({ privateKey: k }).generate(
+    const r = await new MusicClient(sdkOptions()).generate(
       prompt,
       flags.model ? ({ model: String(flags.model) } as never) : undefined,
     );
     return finish(r.data.map((d) => d.url), flags, { model: r.model, kind: "music" });
   } catch (e) {
-    return err("music", (e as Error).message);
+    return commandError("music", e);
   }
 }
 
 /** blockrun speech "<text>" [--voice v][--out f.mp3] · speech voices */
 export async function speechCmd(rest: string[]): Promise<Envelope> {
   const { words, flags } = splitFlags(rest);
-  const k = key();
-  if (!k) return NO_WALLET;
-  const client = new SpeechClient({ privateKey: k });
+  if (!words.length) return err("usage", 'usage: blockrun speech "<text>" [--voice v] [--out f.mp3] | speech voices', 400);
   try {
+    const client = new SpeechClient(sdkOptions());
     if (words[0] === "voices") {
       const voices = await client.listVoices();
       return ok(voices as unknown as unknown[], { count: (voices as unknown[]).length });
@@ -131,7 +124,7 @@ export async function speechCmd(rest: string[]): Promise<Envelope> {
     const r = await client.generate(text, opts);
     return finish(r.data.map((d) => d.url), flags, { model: r.model, kind: "speech" });
   } catch (e) {
-    return err("speech", (e as Error).message);
+    return commandError("speech", e);
   }
 }
 
@@ -141,13 +134,11 @@ export async function realfaceCmd(rest: string[]): Promise<Envelope> {
   if (words[0] !== "enroll" || !words[1]) {
     return err("usage", "usage: blockrun realface enroll <image-https-url> --name <name>", 400);
   }
-  const k = key();
-  if (!k) return NO_WALLET;
   const name = typeof flags.name === "string" ? flags.name : "cli-portrait";
   try {
-    const r = await new PortraitClient({ privateKey: k }).enroll({ name, imageUrl: words[1] });
+    const r = await new PortraitClient(sdkOptions()).enroll({ name, imageUrl: words[1] });
     return ok(r as unknown as Record<string, unknown>, { kind: "realface-enroll" });
   } catch (e) {
-    return err("realface", (e as Error).message);
+    return commandError("realface", e);
   }
 }

@@ -34,6 +34,7 @@ export interface ErrorEnvelope {
     /** Machine code where one exists (e.g. HTTP 402). */
     code?: number;
     message: string;
+    retryAfter?: string;
   };
 }
 

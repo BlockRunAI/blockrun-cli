@@ -1,6 +1,6 @@
 # @blockrun/core
 
-Shared kernel for the BlockRun product family. One wallet, one output contract, one config — so every BlockRun tool (`blockrun` CLI, ClawRouter, Franklin, MCP, the SDKs, clawrouter-codex) reads the **same** `~/.blockrun` wallet and speaks the **same** machine-readable envelope.
+Shared kernel for the BlockRun product family. One account or wallet credential location, one output contract, one config — so every BlockRun tool (`blockrun` CLI, ClawRouter, Franklin, MCP, the SDKs, clawrouter-codex) reads the **same** `~/.blockrun` wallet and speaks the **same** machine-readable envelope.
 
 ## Install
 
@@ -22,6 +22,10 @@ emit(err("payment", "insufficient balance", 402));             // stderr, exit 1
 ```
 
 `{"ok":true,"data":…,"meta":{…}}` / `{"ok":false,"error":{"type","code","message"}}`
+
+### Account authentication (`@blockrun/core/auth`)
+
+`BLOCKRUN_API_KEY` overrides the shared `~/.blockrun/.api-key`. Helpers validate, persist with mode 0600, restrict Bearer credentials to the configured account origin, strip payment headers and refuse redirects. Register at <https://user.blockrun.ai>; keys and credits live under `/dashboard/keys` and `/dashboard/credits`.
 
 ### Wallet (`@blockrun/core/wallet`)
 Single source of truth. Resolution order matches `@blockrun/llm`:
@@ -46,7 +50,7 @@ adoptWallet("0x…");      // copies it to .session, backing up the outgoing wal
 ```
 
 ### Config (`@blockrun/core/config`)
-`~/.blockrun` path resolution (override with `BLOCKRUN_HOME`) and chain selection (`resolveChain`).
+`~/.blockrun` path resolution (override with `BLOCKRUN_HOME`) and chain selection (`resolveChain`). New users default to Solana; saved selections and existing Base-only wallets keep Base.
 
 ## License
 

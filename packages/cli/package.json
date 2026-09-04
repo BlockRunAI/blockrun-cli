@@ -1,7 +1,7 @@
 {
   "name": "@blockrun/cli",
   "version": "0.2.1",
-  "description": "One entry point for every BlockRun product — pay-per-request AI, live data, and any x402 endpoint from one USDC wallet. No API keys.",
+  "description": "One CLI for BlockRun account API keys or x402 payments on Solana and Base.",
   "type": "module",
   "license": "MIT",
   "repository": {
