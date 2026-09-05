@@ -52,6 +52,11 @@ adoptWallet("0x…");      // copies it to .session, backing up the outgoing wal
 ### Config (`@blockrun/core/config`)
 `~/.blockrun` path resolution (override with `BLOCKRUN_HOME`) and chain selection (`resolveChain`). New users default to Solana; saved selections and existing Base-only wallets keep Base.
 
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for dual-chain wallet consolidation and the
+planned multi-wallet account registry.
+
 ## License
 
 MIT
