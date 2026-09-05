@@ -4,6 +4,7 @@
 
 import {
   ok,
+  accountStatus,
   err,
   loadWallet,
   readConfig,
@@ -30,6 +31,7 @@ export function configCmd(rest: string[]): Envelope {
     return key in cfg ? ok({ [key]: cfg[key] }) : err("config", `no such key: ${key}`, 404);
   }
   if (action === "set") {
+    if (key && /key|token|secret|password/i.test(key)) return err("config", "Use login --stdin for credentials; do not store secrets in general config.", 400);
     if (!key || valueParts.length === 0) return err("usage", "usage: blockrun config set <key> <value>", 400);
     const merged = writeConfig({ [key]: valueParts.join(" ") });
     return ok({ [key]: merged[key], saved: true });
@@ -41,6 +43,8 @@ const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 
 /** `blockrun fund` — show the address + funding links for the active wallet. */
 export function fundCmd(): Envelope {
+  const account = accountStatus();
+  if (account) return ok(account);
   const w = loadWallet();
   if (!w) return err("wallet", "No wallet found. Run `blockrun wallet create`.", 404);
   return ok({

@@ -11,7 +11,7 @@
  */
 
 import { parsePaymentRequired, extractPaymentDetails, createPaymentPayload, logCost } from "@blockrun/llm";
-import { ok, err, resolvePrivateKey, addressFromKey, type Envelope } from "@blockrun/core";
+import { accountFetch, accountBaseUrl, resolveApiKey, commandError, ok, err, resolvePrivateKey, addressFromKey, type Envelope } from "@blockrun/core";
 import { splitFlags } from "./media.js";
 import { readPolicy } from "./policy.js";
 import { fetchWithTimeout, readResponseText } from "../http.js";
@@ -167,6 +167,23 @@ export async function apiCmd(rest: string[]): Promise<Envelope> {
   const [method, target] = words;
   if (!method || !target) {
     return err("usage", "usage: blockrun api <GET|POST|...> <url-or-path> [--data '{}'] [--quote] [--max <usd>]", 400);
+  }
+  const auth = resolveApiKey();
+  if (auth) {
+    if (flags.quote || flags.max) return err("usage", "Account requests do not use x402 quotes or --max. Configure account limits in the portal.", 400);
+    try {
+      const base = accountBaseUrl();
+      const targetUrl = /^https?:\/\//i.test(target) ? target : `${base}/${target.replace(/^\/+/, "")}`;
+      const response = await accountFetch(targetUrl, { method: method.toUpperCase(), headers: { "content-type": "application/json" }, ...(typeof flags.data === "string" ? { body: flags.data } : {}) });
+      if (!response.ok) {
+        await response.body?.cancel();
+        const result = err("account", `BlockRun account API returned HTTP ${response.status}. Check https://user.blockrun.ai/dashboard/credits or your API key.`, response.status);
+        const retry = response.headers.get("retry-after");
+        if (retry) result.error.retryAfter = retry;
+        return result;
+      }
+      return ok(await bodyOf(response), { authMode: "api-key", costSource: "account_portal" });
+    } catch (e) { return commandError("api", e); }
   }
   return x402Fetch(
     resolveUrl(target),

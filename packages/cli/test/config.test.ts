@@ -26,8 +26,8 @@ after(() => {
 
 const data = (e: ReturnType<typeof chainCmd>) => (e.ok ? (e.data as Record<string, unknown>) : e.error);
 
-test("chain defaults to base, persists sol, reads it back", () => {
-  assert.equal(data(chainCmd())["chain"], "base");
+test("chain defaults to solana, persists sol, reads it back", () => {
+  assert.equal(data(chainCmd())["chain"], "sol");
   assert.deepEqual(data(chainCmd("sol")), { chain: "sol", saved: true });
   assert.equal(data(chainCmd())["chain"], "sol"); // persisted in config.json
 });

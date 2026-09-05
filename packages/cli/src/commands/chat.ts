@@ -7,8 +7,8 @@
  */
 
 import * as readline from "node:readline";
-import { LLMClient } from "@blockrun/llm";
-import { escapeTerminalText, resolvePrivateKey } from "@blockrun/core";
+import { llmClient } from "./auth.js";
+import { escapeTerminalText, resolveApiKey, PORTAL_URL } from "@blockrun/core";
 import { checkPolicy } from "./policy.js";
 
 interface ChatMsg {
@@ -33,12 +33,12 @@ export interface ChatReplOptions {
 export async function chatRepl(modelFlag?: string, opts: ChatReplOptions = {}): Promise<number> {
   const output = opts.output ?? process.stdout;
   const error = opts.error ?? process.stderr;
-  const resolved = resolvePrivateKey();
-  if (!resolved && !opts.client) {
-    error.write("✗ wallet: No wallet found. Run `blockrun wallet create`.\n");
+  let client: ChatClient;
+  try { client = opts.client ?? llmClient(); } catch (e) {
+    error.write(`✗ auth: ${escapeTerminalText((e as Error).message)}\n`);
     return 1;
   }
-  const client = opts.client ?? new LLMClient({ privateKey: resolved!.privateKey });
+  const account = !!resolveApiKey();
   const policyCheck = opts.policyCheck ?? checkPolicy;
   let model = modelFlag || DEFAULT_MODEL;
   const history: ChatMsg[] = [];
@@ -75,7 +75,7 @@ export async function chatRepl(modelFlag?: string, opts: ChatReplOptions = {}): 
       continue;
     }
     if (input === "/cost") {
-      output.write(`session spend: ~$${spent.toFixed(4)}\n`);
+      output.write(account ? `Account usage: ${PORTAL_URL}/dashboard/credits\n` : `session spend: ~$${spent.toFixed(4)}\n`);
       reprompt();
       continue;
     }

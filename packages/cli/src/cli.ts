@@ -13,6 +13,7 @@ import * as fs from "node:fs";
 import { pathToFileURL } from "node:url";
 import {
   loadWallet,
+  resolveApiKey, accountStatus, saveApiKey, clearApiKey, PORTAL_URL,
   createWallet,
   importWallet,
   adoptWallet,
@@ -106,10 +107,20 @@ export function runCore(command: string, args: ParsedArgs, runtime: CoreRuntime 
   const chain = resolveChain(args.chain);
   switch (command) {
     case "status": {
+      const account = accountStatus();
+      if (account) return ok(account);
       const w = loadWallet();
       if (!w) return ok({ wallet: null, chain, hint: "No wallet yet — run `blockrun wallet create`." });
       return ok({ address: mask(w.address), source: w.source, chain });
     }
+    case "login": {
+      if (args.rest.length !== 1 || args.rest[0] !== "--stdin") return err("usage", "usage: blockrun login --stdin (pipe the API key; never put it in command arguments)", 400);
+      try {
+        saveApiKey((runtime.readStdin ?? (() => fs.readFileSync(0, "utf8")))());
+        return ok({ saved: true, account: PORTAL_URL, envOverridesSavedKey: process.env.BLOCKRUN_API_KEY !== undefined });
+      } catch (e) { return err("auth", (e as Error).message, 400); }
+    }
+    case "logout": return ok(clearApiKey(), { hint: "Saved shared account key removed. Unset BLOCKRUN_API_KEY if it is still present in your shell." });
     case "wallet": {
       const sub = args.rest[0];
       if (sub === "create") {
@@ -196,10 +207,13 @@ export function runCore(command: string, args: ParsedArgs, runtime: CoreRuntime 
 
 const HELP = `blockrun — one entry point for every BlockRun product
 
-Usage: blockrun [--json|--format <f>] [--chain base|sol] <command> [args]
+Usage: blockrun [--json|--format <f>] [--chain sol|base] <command> [args]
 
-Wallet & status
-  status                 wallet + chain overview
+Account & wallet status
+  login --stdin          save an account API key (or set BLOCKRUN_API_KEY)
+  logout                 remove the shared saved account key
+  Register: https://user.blockrun.ai
+  status                 account or wallet overview
   wallet [create|import --stdin|export --yes|list|adopt <address>|recover]
                          (list/adopt: wallets from other apps — never active
                           until you adopt one deliberately)
@@ -214,7 +228,7 @@ Inference (via @blockrun/llm)
   chat [--model m]       interactive multi-turn REPL (/model, /cost, /exit)
   models [--free]        list the model catalog
 
-Multimodal (paid x402; URLs by default, --out saves the file)
+Multimodal (account API or x402; URLs by default, --out saves the file)
   image "<prompt>" [--model|--size|--out] · image edit <url> "<prompt>"
   video "<prompt>" [--model|--duration|--out]
   music "<prompt>" [--out]
@@ -275,6 +289,8 @@ export async function runCoreCommand(command: string, args: ParsedArgs, runtime:
     case "fund":
       return fundCmd();
     case "status":
+    case "login":
+    case "logout":
     case "wallet":
     case "version":
       return runCore(command, args, runtime);
@@ -337,6 +353,7 @@ export async function runCoreCommand(command: string, args: ParsedArgs, runtime:
 export async function main(argv: string[]): Promise<void> {
   const args = parseArgs(argv);
   const command = args.command;
+  if (args.chain) process.env.BLOCKRUN_CHAIN = resolveChain(args.chain);
 
   if (!command || command === "help") {
     process.stdout.write(HELP + "\n");
@@ -356,7 +373,8 @@ export async function main(argv: string[]): Promise<void> {
       emit(await runCoreCommand(command, args), { format: args.format });
       return;
     case "run": {
-      const r = spawnSync(plan.bin, plan.args, { stdio: "inherit" });
+      const auth = resolveApiKey();
+      const r = spawnSync(plan.bin, plan.args, { stdio: "inherit", env: { ...process.env, ...(auth ? { BLOCKRUN_API_KEY: auth.key } : {}) } });
       process.exitCode = r.status ?? 1;
       return;
     }

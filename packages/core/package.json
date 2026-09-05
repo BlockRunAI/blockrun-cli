@@ -1,7 +1,7 @@
 {
   "name": "@blockrun/core",
   "version": "0.1.1",
-  "description": "Shared kernel for all BlockRun products — wallet, x402 payment, config, and the agent-native JSON output contract.",
+  "description": "Shared account and wallet authentication, config, and output contracts for BlockRun products.",
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -38,7 +38,11 @@
       "types": "./dist/config.d.ts",
       "import": "./dist/config.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./auth": {
+      "types": "./dist/auth.d.ts",
+      "import": "./dist/auth.js"
+    }
   },
   "files": [
     "dist"
@@ -51,4 +55,3 @@
     "viem": "^2.21.0"
   }
 }
-
